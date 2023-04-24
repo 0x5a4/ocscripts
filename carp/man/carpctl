@@ -1,0 +1,26 @@
+NAME
+  carpctl - manually control carpd
+  
+  Note: This is mainly intended for testing
+  
+USAGE
+  carpctl [COMMAND] <args>
+
+COMMANDS
+  set-status <new-status>...    - set status to <new-status>. arguments are concatenated
+
+  fetch <value>...           - start fetching the specified values. can accept multiple arguments.
+                               Note: this overwrites the currently fetched values.
+
+  sync-data <key>=<value>... - sync the given key-value pairs to the server. can accept multiple arguments.
+
+  monitor                    - starts listening for 'carp_update' signals and prints them in a readable format.
+
+  stop                       - stop the carp daemon
+
+EXAMPLES
+  Set 'some_key' to 'some_value' and 'another_key' to '42'
+    'carpctl sync-data some_key=some_value another_key=42'
+  
+  Start fetching 'some_key' and 'another_key'
+    'carpctl fetch some_key another_key'

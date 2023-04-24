@@ -1,0 +1,70 @@
+NAME
+  carpd - remotely synchronize data and indicate overall system state
+
+CONFIG
+  These options can be configured in '/etc/carpd.cfg'
+
+  'remote'         - address to synchronize to. THIS HAS TO BE SET!
+  'port'           - port to exchange messages on. (default: 1000)
+  'default_status' - default status if none is set. (default: 'starting')
+  'fetch_interval' - interval in which to fetch requested values from the remote. (default: 5)
+  'timeout'        - max amount of time allowed to pass between packets. a latency of 1 second 
+                     is automatically accounted for. (default: 10)
+  'enable_wakeup'  - configure the modem to automatically wake the system on '!wakeup!' messages. 
+                     (default: true)
+
+SIGNALS
+  'carp_request'   - used by applications to update carpd's internal state like the current system 
+                     state or what values to fetch. see below.
+  'carp_update'    - pushed by carpd itself to indicate a changed value, e.g. incoming data.
+                       see below.
+
+REQUESTS
+  status_update <status> - change the current status.
+  
+  data_update <data>     - synchronize the given data to the host.
+      <data> must be a table containing key-value pairs to be 
+      synchronized.
+  
+  fetch_values <values>  - set what values to fetch from the host.
+      <values> must be a table containing the names of the values
+      to fetch. values will be continuously updated in the interval
+      set by 'fetch_interval' in the config. fetched values will be
+      indicated by the 'carp_update' signal.
+
+  stop - stops the daemon.
+
+UPDATES
+  data <data> - update data received from fetching requested values
+      <data> will be a table containing the fetched values in 
+      a key-value table. the table is NOT guaranteed to contain all
+      requested values or any values at all if the requested values
+      were not found on the server.
+
+HOOKS
+  carp can automatically run appropriate hooks on daemon start/stop. this is intended to
+  easily integrate short routines e.g. setup a timer to periodically check if something has still 
+  power and update the status accordingly, without having to worry about writing service files yourself. 
+
+  the start hook should be placed in '/etc/carp.d/start.lua' and a stop hook would be placed 
+  in '/etc/carp.d/stop.lua'.
+
+  the start hook can define an array called 'event_handlers'. this array should only contain event ids 
+  obtained from e.g. 'event.timer'. these events will be automatically unregistered on daemon shutdown.
+
+EXAMPLE
+  Change the current status
+    'event.push("carp_request", "status_update", "ok")'
+
+  Synchronize values to the server
+    'event.push("carp_request", "data_update", {some_key = "some_value" })'  
+
+  Request values and listen to their changes
+    event.push("carp_request", "fetch_values", {"some_key"})
+    event.listen("carp_update" function(type, data)
+      if type ~= "data" then --failsafe for future update types
+        return
+      end
+
+      print(data["some_key"]) -- again this is NOT guaranteed to contain a value
+    end)
