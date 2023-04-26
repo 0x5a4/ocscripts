@@ -31,7 +31,7 @@ up to a certain threshold and even automate the creation of the `Hohlraum` neede
 (Requires a robot) Fully automate the Dire Crafting Table. Kill me now.  
 NOTE: This can merely extract all required Items from the ME. For the actual autocrafting [Avaritiaaddons](https://www.curseforge.com/minecraft/mc-mods/avaritiaddons) is required.
 
-### witherbegone (TODO)
+### witherbegone
 (Requires a robot) Autospawn the wither. Requires some sort of Block Placer(e.g. OpenBlocks) and a
 way to kill the wither(e.g. Draconic Evolution). Make sure the withers come-to-life explosion
 happens some distance away from the robot as it will destroy the robot otherwise. In general

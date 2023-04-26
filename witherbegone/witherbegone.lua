@@ -6,6 +6,27 @@ local os = require("os")
 local robot = require("robot")
 local sides = require("sides")
 
+if not component.isAvailable("robot") then
+  print("witherbegone can only run in robots!")
+  print("this is due to the ME upgrade only being available there")
+  return
+end
+
+if not component.isAvailable("database") then
+  print("missing required component 'database'")
+  return
+end
+
+if not component.isAvailable("redstone") then
+  print("missing required component 'redstone'")
+  return
+end
+
+if not component.isAvailable("inventory_controller") then
+  print("missing required component 'inventory_controller'")
+  return
+end
+
 local trans = component.inventory_controller
 local redstone = component.redstone
 local db = component.database
@@ -118,7 +139,7 @@ local function grabItems()
   return true
 end
 
-print("wither farm started")
+print("witherbegone v1.0 started")
 
 while not event.pull(5, "interrupted") do
   if grabItems() then
