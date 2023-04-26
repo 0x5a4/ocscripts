@@ -3,6 +3,8 @@
 ## Requirements
 - An ME System storing, or capable of autocrafting all ingredients 
 - Extra Cells ME Upgrade linked to said ME System
+- Inventory Controller Upgrade
+- Inventory Upgrade
 - A Robot
 - A Dire Autocrafting Table(expensive!)
 
