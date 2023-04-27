@@ -12,7 +12,7 @@ Documentation is only provided for completeness sake and so that future-me can s
 fetch centralized data stored on the "master" server and run user defined hooks. 
 
 ### salmon (TODO)
-`salmon` can be used as a "master" server, controlling multiple instanced of `carp`. 
+`salmon` can be used as a "master" server, controlling multiple instances of `carp`. 
 
 ### salmongui (TODO)  
 Can be used to graphically show the current state of all connected `carp` clients as well
