@@ -14,11 +14,6 @@ fetch centralized data stored on the "master" server and run user defined hooks.
 ### salmon (TODO)
 `salmon` can be used as a "master" server, controlling multiple instances of `carp`. 
 
-### salmongui (TODO)  
-Can be used to graphically show the current state of all connected `carp` clients as well
-as virtually anything you can think of yourself(I monitored the combined contents of my ME-System).
-At the moment it HAS to run on the same system as the `salmon` instance.
-
 ### mkfrctrl (TODO)
 `mkfrctrl` or `mekanism-fusion-reactor-control` can monitor a fusion reactor. It can also
 automatically restart the reactor if it decides to die on a server restart again, charge a laser
