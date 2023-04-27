@@ -19,9 +19,6 @@ Can be used to graphically show the current state of all connected `carp` client
 as virtually anything you can think of yourself(I monitored the combined contents of my ME-System).
 At the moment it HAS to run on the same system as the `salmon` instance.
 
-### guppy (TODO)
-Automates Avaritia's Singularity as there is no way for the ME-System to export 27000 "Block-Of-Expensive-Material"s by itself.
-
 ### mkfrctrl (TODO)
 `mkfrctrl` or `mekanism-fusion-reactor-control` can monitor a fusion reactor. It can also
 automatically restart the reactor if it decides to die on a server restart again, charge a laser
