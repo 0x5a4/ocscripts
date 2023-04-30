@@ -1,5 +1,5 @@
 -- vim:set sw=2:
--- autodire version v1.0
+-- autodire version v1.1
 local component = require("component")
 local event = require("event")
 local sides = require("sides")
@@ -8,18 +8,10 @@ local requestSide = sides.up
 local ackSide = sides.down
 local outSide = sides.front
 
--- basic steps
--- 1. load required items
--- 2. check adjacent chest for cobblestone
--- 3. if found, loop required items
---  - if available in ME, order and extract to output side
---  - if not available check craftables, order if found
 if not component.isAvailable("robot") then
   print("autodire can only run in robots!")
-  print("this is due to the ME upgrade only being available there")
   return
 end
-
 
 if not component.isAvailable("database") then
   print("missing required component 'database'")
@@ -36,28 +28,68 @@ if not component.isAvailable("inventory_controller") then
   return
 end
 
--- load recipe from database
+-- load recipe from the primary database component
+local function loadRecipe()
+  local recipe = {}
+  for i = 1, 81 do
+    local result, item = pcall(component.database.get, i)
+    if not result then break end
 
-local recipe = {}
-io.write("loading recipe from database... ")
-for i = 1, 81 do
-  local result, item = pcall(component.database.get, i)
-  if not result then break end
+    if item then
+      table.insert(recipe, {
+        dbIndex = i,
+        name = item.name,
+        damage = item.damage
+      })
+    end
+  end
 
-  if item then
-    table.insert(recipe, {
-      dbIndex = i,
+  return recipe
+end
+
+-- given a recipe, determines what steps need to be taken to obtain all required items
+--
+-- if an item is found to be unobtainable, returns nil along with the name of the item
+local function determineCraftingSteps(recipe)
+  local me = component.upgrade_me
+
+  -- cache for used items. this prevents one item satisfying infinite requests for that item
+  -- since the current "step" is unaware of any other steps
+  local cache = {}
+
+  local result = {}
+  for _, item in ipairs(recipe) do
+    local filter = {
       name = item.name,
       damage = item.damage
-    })
-  end
-end
+    }
+    local netItems = me.getItemsInNetwork(filter)
+    local _, netItem = next(netItems)
 
-if #recipe == 0 then
-  print("database is empty!")
-  return
+    if netItem and netItem.size > 0 then -- stupid me system lists autocraftable items with size 0, this took forever to debug :|
+      local cacheKey = item.name .. ":" .. item.damage
+      if cache[cacheKey] == nil then cache[cacheKey] = 0 end
+
+      if cache[cacheKey] + 1 <= netItem.size then
+        table.insert(result, { autocraft = false, item = item })
+        cache[cacheKey] = cache[cacheKey] + 1
+        goto continue
+      end
+    end
+
+    -- item isnt in network maybe try autocrafting it?
+    local craftable = me.getCraftables(filter)
+
+    if not next(craftable) then -- :(
+      return nil, filter.name .. ":" .. filter.damage
+    end
+
+    table.insert(result, { autocraft = true, item = item })
+    ::continue::
+  end
+
+  return result
 end
-print("done!")
 
 -- move the currently selected item into a free slot on the specified side
 local function transferItem(side)
@@ -73,98 +105,159 @@ local function transferItem(side)
   return false
 end
 
--- request all required items from the ME-System.
-local function requestItems()
+-- watches the given request. if it is completed returns true, false on cancelation and
+-- yields if not yet completed
+local function watchRequest(request)
+  while true do
+    if request.isCanceled() then
+      return false
+    end
+
+    if request.isDone() then
+      return true
+    end
+
+    coroutine.yield()
+  end
+end
+
+-- request all required items from the ME-System or try autocrafting it.
+-- returns a table of autocrafting jobs that still need to be completed.
+--
+-- if an item cannot be found, returns nil along with the items name.
+-- this propably means that the item was removed while the crafting was still ongoing
+-- and indicates that something has gone terribly wrong
+local function requestItems(steps)
   local me = component.upgrade_me
   local database = component.database
 
-  -- check if all items can actually be obtained and gather the ways to obtain them in this table.
-  -- this solves the issue of being halfway done with a recipe when discovering it is incompletable but
-  -- still has the issue that an item might be extracted before we can finally obtain it. in that case
-  -- we just return false and throw our arms in the air
-  local ingredients = {}
-  for _, item in ipairs(recipe) do
-    local filter = {
-      name = item.name,
-      damage = item.damage
-    }
-    local netItems = me.getItemsInNetwork(filter)
-    local _, netItem = next(netItems)
+  local jobs = {}
 
-    if netItem and netItem.size > 0 then -- stupid me system lists autocraftable items with size 0, this took forever to debug :|
-      table.insert(ingredients, { autocraft = false, item = item })
-      goto continue
-    end
-
-    -- item isnt in network maybe try autocrafting it?
-    local craftable = me.getCraftables(filter)
-
-    if not next(craftable) then -- :(
-      print("unable to obtain item '" .. item.name .. ":" .. item.damage .. "'")
-      return false
-    end
-
-    table.insert(ingredients, { autocraft = true, item = item })
-    ::continue::
-  end
-
-  -- actually obtain the items
-  for _, ingredient in ipairs(ingredients) do
-    if ingredient.autocraft then
+  for _, step in ipairs(steps) do
+    if step.autocraft then
       --craft it
       local craftables = me.getCraftables({
-        name = ingredient.item.name,
-        damage = ingredient.item.damage
+        name = step.item.name,
+        damage = step.item.damage
       })
 
-      io.write("autocrafting item '" .. ingredient.item.name .. ":" .. ingredient.item.damage .. "'... ")
-      local status = craftables[1].request(1)
+      print("autocrafting item '" .. step.item.name .. ":" .. step.item.damage .. "'... ")
+      local request = craftables[1].request(1)
 
       --wait for completion or cancelation
-      while true do
-        if status.isCanceled() then
-          print("was canceled!")
-          return false
-        end
-
-        if status.isDone() then
-          print("done!")
-          break
-        end
-      end
-    end
-
-    if me.requestItems(database.address, ingredient.item.dbIndex, 1) == 1 then
-      print("obtained item '" .. ingredient.item.name .. ":" .. ingredient.item.damage .. "'")
-      transferItem(outSide)
+      local job = {
+        watcher = coroutine.create(function() return watchRequest(request) end),
+        item = step.item
+      }
+      table.insert(jobs, job)
     else
-      print("required item was removed from ME while busy: '" .. ingredient.item.name .. ":" ..
-        ingredient.item.damage .. "'")
-      print("ABORTING, USER INTERVENTION IS MOST LIKELY REQUIRED")
-      event.push("carp_request", "status_update", "failure")
-      return false
+      if me.requestItems(database.address, step.item.dbIndex, 1) == 1 then
+        print("obtained item '" .. step.item.name .. ":" .. step.item.damage .. "'")
+        transferItem(outSide)
+      else
+        return nil, step.item.name .. ":" .. step.item.damage
+      end
     end
   end
 
-  return true
+  return jobs
 end
 
-while not event.pull(10, "interrupted") do
+-- scans the inventory on the specified side for items
+-- yields with the slot index and the stack size if an item is found, nil otherwise
+local function scanInventory(side)
   local invController = component.inventory_controller
-
-  for slot = 1, invController.getInventorySize(requestSide) do
-    local stack = invController.getStackInSlot(requestSide, slot)
+  local invSize = invController.getInventorySize(side)
+  local slot = 1
+  while true do
+    local stack = invController.getStackInSlot(side, slot)
 
     if stack then
-      for _ = 1, stack.size do
-        if not requestItems() then
-          return -- abort(yes this is a less then ideal way of doing that)
-        end
+      coroutine.yield(slot, stack.size)
+      slot = 1
+    end
 
-        -- acknowledge
-        invController.suckFromSlot(requestSide, slot, 1)
-        transferItem(ackSide)
-      end
+    if slot == invSize then
+      slot = 1
+      coroutine.yield(nil)
+    else
+      slot = slot + 1
     end
   end
+end
+
+io.write("loading recipe from database... ")
+local recipe = loadRecipe()
+if #recipe == 0 then
+  print("is empty")
+end
+
+print("done!")
+
+local me = component.upgrade_me
+local db = component.database
+local checkInventory = coroutine.wrap(function() scanInventory(requestSide) end)
+local unobtainableWarning = false
+
+while not event.pull(5, "interrupted") do
+  local slot, amount = checkInventory()
+  if not slot then goto nextCycle end
+
+  for _ = 1, amount do
+    local steps, reason = determineCraftingSteps(recipe)
+    if not steps then
+      if not unobtainableWarning then
+        print("unable to make recipe, due to unobtainable item '" .. reason .. "'")
+        event.push("carp_request", "status_update", "missing item")
+        unobtainableWarning = true
+      end
+
+      goto nextCycle
+    end
+    unobtainableWarning = false
+
+    local jobs, reason = requestItems(steps)
+    if not jobs then
+      print("critical error! item '" .. reason .. "' was removed while busy")
+      event.push("carp_request", "status_update", "failure")
+      return
+    end
+
+    -- dispatch all crafting jobs
+    if #jobs > 0 then
+      print("waiting for autocrafting jobs...")
+    end
+
+    while #jobs > 0 do
+      for i, job in ipairs(jobs) do
+        local _, status = coroutine.resume(job.watcher)
+
+        if status == true then
+          if me.requestItems(db.address, job.item.dbIndex, 1) == 1 then
+            print("obtained item '" .. job.item.name .. ":" .. job.item.damage .. "'")
+            table.remove(jobs, i)
+            transferItem(outSide)
+          else
+            print("critical error! item '" .. job.item.name .. ":" .. job.item.damage .. "' was removed while busy")
+            event.push("carp_request", "status_update", "failure")
+            return
+          end
+        elseif status == false then --it might be nil
+          print("critical error! job for item '" ..
+            job.item.name .. ":" .. job.item.damage .. "' was canceled(or missing ingredients)")
+
+          event.push("carp_request", "status_update", "failure")
+          return
+        end
+      end
+    end
+
+    -- acknowledge
+    component.inventory_controller.suckFromSlot(requestSide, slot, 1)
+    transferItem(ackSide)
+
+    print("recipe completed!")
+  end
+
+  ::nextCycle::
 end
