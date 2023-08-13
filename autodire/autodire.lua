@@ -1,5 +1,5 @@
 -- vim:set sw=2:
--- autodire version v1.1
+-- autodire version v1.2
 local component = require("component")
 local event = require("event")
 local sides = require("sides")
@@ -141,7 +141,7 @@ local function requestItems(steps)
         damage = step.item.damage
       })
 
-      print("autocrafting item '" .. step.item.name .. ":" .. step.item.damage .. "'... ")
+      print("autocrafting '" .. step.item.name .. ":" .. step.item.damage .. "'")
       local request = craftables[1].request(1)
 
       --wait for completion or cancelation
@@ -152,7 +152,7 @@ local function requestItems(steps)
       table.insert(jobs, job)
     else
       if me.requestItems(database.address, step.item.dbIndex, 1) == 1 then
-        print("obtained item '" .. step.item.name .. ":" .. step.item.damage .. "'")
+        print("obtained '" .. step.item.name .. ":" .. step.item.damage .. "'")
         transferItem(outSide)
       else
         return nil, step.item.name .. ":" .. step.item.damage
@@ -218,7 +218,7 @@ while not event.pull(5, "interrupted") do
 
     local jobs, reason = requestItems(steps)
     if not jobs then
-      print("critical error! item '" .. reason .. "' was removed while busy")
+      print("critical error! '" .. reason .. "' was removed while busy")
       event.push("carp_request", "status_update", "failure")
       return
     end
@@ -234,20 +234,22 @@ while not event.pull(5, "interrupted") do
 
         if status == true then
           if me.requestItems(db.address, job.item.dbIndex, 1) == 1 then
-            print("obtained item '" .. job.item.name .. ":" .. job.item.damage .. "'")
+            print("obtained '" .. job.item.name .. ":" .. job.item.damage .. "'")
             table.remove(jobs, i)
             transferItem(outSide)
           else
-            print("critical error! item '" .. job.item.name .. ":" .. job.item.damage .. "' was removed while busy")
+            print("critical error! '" .. job.item.name .. ":" .. job.item.damage .. "' was removed while busy")
             event.push("carp_request", "status_update", "failure")
             return
           end
         elseif status == false then --it might be nil
-          print("critical error! job for item '" ..
+          print("critical error! job for '" ..
             job.item.name .. ":" .. job.item.damage .. "' was canceled(or missing ingredients)")
 
           event.push("carp_request", "status_update", "failure")
           return
+        else
+          print("still waiting for " .. job.item.name .. ":" .. job.item.damage .. "'")
         end
       end
     end
