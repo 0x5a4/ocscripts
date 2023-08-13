@@ -1,5 +1,5 @@
 -- vim:set sw=2:
--- carpd version v1.0
+-- carpd version v1.1
 local computer = require("computer")
 local component = require("component")
 local event = require("event")
@@ -54,6 +54,8 @@ local function stop()
       error("stop hook failed to run: " .. reason)
     end
   end
+
+  component.modem.close(config.port)
 end
 
 local function sendMessage(message)
@@ -154,7 +156,9 @@ if not component.isAvailable("modem") then
 end
 
 --open the port
-component.modem.open(config.port)
+if component.modem.open(config.port) then
+  error("port "..config.port.." already open. try changing it in the config file")
+end
 
 if config.enable_wakeup then
   component.modem.setWakeMessage("!wakeup!")
