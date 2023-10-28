@@ -14,11 +14,6 @@ fetch centralized data stored on the "master" server and run user defined hooks.
 ### salmon (TODO)
 `salmon` can be used as a "master" server, controlling multiple instances of `carp`. 
 
-### mkfrctrl (TODO)
-`mkfrctrl` or `mekanism-fusion-reactor-control` can monitor a fusion reactor. It can also
-automatically restart the reactor if it decides to die on a server restart again, charge a laser
-up to a certain threshold and even automate the creation of the `Hohlraum` needed for ignition.
-
 ### autodire
 (Requires a robot) Fully automate the Dire Crafting Table. Kill me now.  
 NOTE: This can merely extract all required Items from the ME. For the actual autocrafting [Avaritiaaddons](https://www.curseforge.com/minecraft/mc-mods/avaritiaddons) is required.
